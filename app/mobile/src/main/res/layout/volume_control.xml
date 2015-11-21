@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:paddingLeft="14dp"
+    android:paddingRight="14dp">
+
+    <ImageButton
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:text="-"
+        android:src="@drawable/vol_down_100"
+        android:scaleType="fitCenter"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:id="@+id/buttonVolDown"/>
+
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toLeftOf="@+id/buttonVolUp"
+        android:layout_toRightOf="@+id/buttonVolDown"
+        android:orientation="vertical" >
+
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:text="0"
+            android:visibility="invisible"
+            android:id="@+id/volToolTip" />
+
+        <SeekBar
+            android:id="@+id/seekBar"
+            android:max="100"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+
+    <ImageButton
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:text="+"
+        android:src="@drawable/vol_up_100"
+        android:scaleType="fitCenter"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:id="@+id/buttonVolUp"/>
+
+
+</RelativeLayout>

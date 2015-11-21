@@ -1,0 +1,10 @@
+Fixed illegal exception when updating seekBar
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch dev
+# Changes to be committed:
+#	modified:   mobile/src/main/java/com/kien/luna/activity/RemoteControlFragment.java
+#
+# Untracked files:
+#	.idea/
+#

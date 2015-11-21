@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">Ikea</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_search">Search</string>
+    <string name="drawer_open">Open</string>
+    <string name="drawer_close">Close</string>
+
+    <!--<string name="nav_item_devices">Devices</string>-->
+    <!--<string name="nav_item_remote">Remote</string>-->
+    <string name="nav_item_configuration">Configuration</string>
+    <string name="nav_item_about">About</string>
+
+    <!-- navigation drawer item labels  -->
+    <string-array name="nav_drawer_labels">
+        <!--<item>@string/nav_item_devices</item>-->
+        <!--<item>@string/nav_item_remote</item>-->
+        <item>@string/nav_item_configuration</item>
+        <item>@string/nav_item_about</item>
+    </string-array>
+
+    <string-array name="nav_drawer_imgs">
+        <!--<item>@drawable/devices_100</item>-->
+        <!--<item>@drawable/remote_100</item>-->
+        <item>@drawable/settings_100</item>
+        <item>@drawable/info_100</item>
+    </string-array>
+
+    <!--<string name="title_devices">Devices</string>-->
+    <!--<string name="title_remote">Remote</string>-->
+    <string name="title_configuration">Configuration</string>
+    <string name="title_about">About</string>
+
+<!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
