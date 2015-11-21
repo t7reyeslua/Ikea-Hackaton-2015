@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+#need to clean these...
 import time
 import pyupm_grove as grove
 import pyupm_mic as upmMicrophone 
+import httplib, urllib, urllib2
 
 #Create the temp sensor object using AIO pin 2
 temp = grove.GroveTemp(2)
@@ -14,6 +16,9 @@ threshContext = upmMicrophone.thresholdContext()
 threshContext.averageReading = 0
 threshContext.runningAverage = 0
 threshContext.averagedOver = 2
+
+#Stuff for HTTP posts
+ip = "http://94.143.213.153/Areas"
 
 def get_temp():
     celsius = temp.value()
@@ -31,16 +36,24 @@ def get_sound():
             print "Threshold is ", thresh
     return thresh
 
+def send_data(temperature, sound):
+    values = {'temperature':temperature,
+            'sound':sound,
+            'name' : 'Office'}
+    data = urllib.urlencode(values)
+    req = urllib2.Request(ip, data)
+    try:
+        response = urllib2.urlopen(req)
+    except urllib2.HTTPError:
+        pass
+
 def main():
     print "hi!\n"
     while(1):
         temp = get_temp()
         sound = get_sound()
-        #pack and send client
-        
-        time.sleep(1)
-        print("-----"*2)
+        send_data(temp, sound);
+        time.sleep(5);
 
 if __name__ == "__main__":
     main()
-    print "bye!\n"
