@@ -54,6 +54,7 @@ public class SendJsonTask extends AsyncTask<Message, Boolean, Boolean> {
             jsonParam.put("user_id", parts[0]);
             jsonParam.put("event", parts[1]);
             jsonParam.put("area", parts[2]);
+            jsonParam.put("steps", parts[3]);
             OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
             out.write(jsonParam.toString());
             out.close();
@@ -79,7 +80,6 @@ public class SendJsonTask extends AsyncTask<Message, Boolean, Boolean> {
             return false;
         }
         catch (IOException e) {
-            Log.e(TAG, e.getMessage());
             return false;
         } catch (JSONException e) {
             Log.e(TAG, e.getMessage());

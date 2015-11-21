@@ -1,15 +1,28 @@
 package com.kien.luna.activity;
 
+import com.estimote.sdk.SystemRequirementsChecker;
 import com.kien.luna.R;
 import com.kien.luna.beacons.BeaconMonitoring;
 import com.kien.luna.beacons.BeaconRanging;
 import com.kien.luna.communication.Message;
 import com.kien.luna.communication.Server;
+import com.kien.luna.stepCounter.ActivityMonitor;
+import com.kien.luna.stepCounter.StepCounter;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorManager;
+import android.hardware.SensorEventListener;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -24,7 +37,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
-public class MainActivity extends AppCompatActivity implements FragmentDrawer.FragmentDrawerListener {
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity implements FragmentDrawer.FragmentDrawerListener, ServiceConnection {
 
     private static String TAG = MainActivity.class.getSimpleName();
     private Toolbar mToolbar;
@@ -32,6 +48,14 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     private Server server;
     private View coordinatorLayoutView;
     private BeaconMonitoring beaconEstimote;
+
+    private SensorManager mSensorManager;
+    private Messenger mServiceMessenger = null;
+    private boolean mIsBound;
+    private final Messenger mMessenger = new Messenger(new IncomingMessageHandler());
+
+    private int total_steps = 0;
+    private ServiceConnection mConnection = this;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,24 +74,34 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
 
         // display the first navigation drawer view on app launch
         displayView(0);
-
+        configureSensing();
         registerReceivers();
         beaconEstimote = new BeaconMonitoring(this);
-        // startServer();
-
+        doBindService();
+        this.startService(new Intent(this, StepCounter.class));
     }
 
+    public void configureSensing() {
+        // Get the SensorManager
+        mSensorManager= (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+        // register this class as a listener for the accelerometer sensors
+        List<Sensor> listSensor
+                = mSensorManager.getSensorList(Sensor.TYPE_ALL);
 
-    private void startServer(){
-        Log.d(TAG, "Starting server");
-        server = new Server(5119, this.getApplicationContext());
-        new Thread(server).start();
-
+        List<String> listSensorType = new ArrayList<String>();
+        for(int i=0; i<listSensor.size(); i++){
+            Log.e("SENSORS", listSensor.get(i).getName() + "|" + listSensor.get(i).getStringType());
+            listSensorType.add(listSensor.get(i).getName());
+        }
     }
 
     private void registerReceivers(){
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
                 new IntentFilter(Server.MESSAGE_RECEIVED));
+//        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+//                new IntentFilter(StepCounter.STEP_COUNT_EVENT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+                new IntentFilter(BeaconMonitoring.REGION_EVENT));
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
                 new IntentFilter(DevicesFragment.DEVICES_FRAGMENT));
     }
@@ -77,11 +111,13 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
         @Override
         public void onReceive(Context context, Intent intent) {
             // Get extra data included in the Intent
-            Message message = intent.getParcelableExtra("message");
+            String message = intent.getStringExtra("message");
             Log.d(TAG, "Got message: " + message);
-            Snackbar snackbar = Snackbar
-                    .make(coordinatorLayoutView, message.getMessage(), Snackbar.LENGTH_SHORT);
-            snackbar.show();
+            if (intent.getAction().equals(BeaconMonitoring.REGION_EVENT)) {
+                Snackbar snackbar = Snackbar
+                        .make(coordinatorLayoutView, message, Snackbar.LENGTH_SHORT);
+                snackbar.show();
+            }
         }
     };
 
@@ -90,8 +126,18 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     {
         super.onDestroy();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
-        server.stop();
+        try {
+            doUnbindService();
+            this.stopService(new Intent(this, StepCounter.class));
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to unbind from the service", t);
+        }
+    }
 
+    @Override
+    public void onResume(){
+        super.onResume();
+        SystemRequirementsChecker.checkWithDefaultDialogs(this);
     }
 
     @Override
@@ -153,6 +199,94 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
 
             // set the toolbar title
             getSupportActionBar().setTitle(title);
+        }
+    }
+
+    private void automaticBind() {
+        if (StepCounter.isRunning()) {
+            doBindService();
+        }
+    }
+    private void doBindService() {
+        this.bindService(new Intent(this, StepCounter.class),
+                mConnection, Context.BIND_AUTO_CREATE);
+        mIsBound = true;
+        Log.e(TAG, "doBindService");
+    }
+
+    private void doUnbindService() {
+        if (mIsBound) {
+
+            Log.d(TAG, "Unbinding from service");
+            // If we have received the service, and hence registered with it, then now is the time to unregister.
+            if (mServiceMessenger != null) {
+                try {
+                    android.os.Message msg = android.os.Message.obtain(null, StepCounter.MSG_UNREGISTER_CLIENT);
+                    msg.replyTo = mMessenger;
+                    mServiceMessenger.send(msg);
+                } catch (RemoteException e) {
+                    // There is nothing special we need to do if the service has crashed.
+                }
+            }
+            // Detach our existing connection.
+            this.unbindService(mConnection);
+            mIsBound = false;
+        }
+    }
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        mServiceMessenger = new Messenger(service);
+        try {
+            android.os.Message msg = android.os.Message.obtain(null, StepCounter.MSG_REGISTER_CLIENT);
+            msg.replyTo = mMessenger;
+            mServiceMessenger.send(msg);
+            Log.e(TAG, "onServiceConnected - SUCCESS");
+        }
+        catch (RemoteException e) {
+            // In this case the service has crashed before we could even do anything with it
+        }
+        Log.e(TAG, "onServiceConnected");
+    }
+
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        // This is called when the connection with the service has been unexpectedly disconnected - process crashed.
+        mServiceMessenger = null;
+    }
+
+    private void sendMessageToService(int intvaluetosend) {
+        if (mIsBound) {
+            if (mServiceMessenger != null) {
+                try {
+                    android.os.Message msg = android.os.Message
+                            .obtain(null, StepCounter.MSG_SET_INT_VALUE, intvaluetosend, 0);
+                    msg.replyTo = mMessenger;
+                    mServiceMessenger.send(msg);
+                } catch (RemoteException e) {
+                }
+            }
+        }
+    }
+    private class IncomingMessageHandler extends Handler {
+        @Override
+        public void handleMessage(android.os.Message msg) {
+            Log.d(TAG, "IncomingHandler:handleMessage");
+            switch (msg.what) {
+                case StepCounter.MSG_SET_INT_VALUE:
+                    total_steps = msg.arg1;
+                    break;
+                case StepCounter.MSG_SET_STRING_VALUE:
+                    break;
+                case StepCounter.MSG_SET_LIST_VALUE:
+                    break;
+                case StepCounter.MSG_SET_BOOLEAN_VALUE:
+                    boolean inHand = msg.getData().getBoolean("bool1");
+                    break;
+                default:
+                    super.handleMessage(msg);
+            }
         }
     }
 }

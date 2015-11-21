@@ -3,17 +3,24 @@ package com.kien.luna.beacons;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.support.design.widget.Snackbar;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.estimote.sdk.Beacon;
 import com.estimote.sdk.BeaconManager;
 import com.estimote.sdk.Region;
+import com.kien.luna.activity.DevicesFragment;
 import com.kien.luna.activity.MainActivity;
 import com.kien.luna.communication.Message;
 import com.kien.luna.communication.SendJsonTask;
 import com.kien.luna.communication.SendMessageTask;
+import com.kien.luna.communication.Server;
+import com.kien.luna.stepCounter.StepCounter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,15 +35,20 @@ public class BeaconMonitoring {
     private ArrayList<String> uuids = new ArrayList<>();
     private ArrayList<Integer> majors = new ArrayList<>();
     private ArrayList<Integer> minors = new ArrayList<>();
-    private Long scanPeriodMillis = 5000L;
+    private Long scanPeriodMillis = 15000L;
     private Long waitTimeMillis = 1000L;
-
+    public static final  String REGION_EVENT = "com.kien.luna.REGION_EVENT";
+    private int steps_count = 0;
+    private int steps_offset = -1;
+    private boolean insideOffice = true;
     private Context context;
+
     public BeaconMonitoring(Context context) {
         this.context = context;
         beaconManager = new BeaconManager(context);
         defineBeaconRegions();
         startMonitoringRegions();
+        registerReceivers();
     }
 
     private void startMonitoringRegions(){
@@ -58,7 +70,9 @@ public class BeaconMonitoring {
                         region.toString(), region.getMinor()
                 );
                 String user_id = "1";
-                postJson(user_id + ";ENTER;" + region.getIdentifier());
+                postJson(user_id + ";ENTER;" + region.getIdentifier()+ ";" + String.valueOf(steps_count));
+                broadcastMessage("Entering region " + region.getIdentifier() + "| Total steps: " + String.valueOf(steps_count) );
+                steps_count = 0;
             }
 
             @Override
@@ -68,10 +82,12 @@ public class BeaconMonitoring {
                         region.toString(), region.getMinor());
 
                 String user_id = "1";
-                postJson(user_id + ";EXIT;" + region.getIdentifier());
+                postJson(user_id + ";EXIT;" + region.getIdentifier() + ";" + String.valueOf(steps_count));
+                broadcastMessage("Exiting region " + region.getIdentifier() + "| Total steps: " + String.valueOf(steps_count));
+                steps_count = 0;
             }
         };
-//        beaconManager.setBackgroundScanPeriod(scanPeriodMillis, waitTimeMillis);
+        beaconManager.setBackgroundScanPeriod(scanPeriodMillis, waitTimeMillis);
         beaconManager.setMonitoringListener(beaconMonitoringListener);
     }
 
@@ -133,6 +149,32 @@ public class BeaconMonitoring {
         }
 
 
+    }
+
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Get extra data included in the Intent
+            Integer message = intent.getIntExtra("message", 0);
+            Log.d("BeaconMonitoring", "Got message: " + message);
+            if (intent.getAction().equals(StepCounter.STEP_COUNT_EVENT)) {
+                steps_count += 1;
+            }
+        }
+    };
+
+    private void registerReceivers(){
+        LocalBroadcastManager.getInstance(this.context).registerReceiver(mMessageReceiver,
+                new IntentFilter(StepCounter.STEP_COUNT_EVENT));
+    }
+
+
+    private void broadcastMessage(String msg) {
+        Log.d("REGION_EVENT", "Broadcasting message");
+        Intent intent = new Intent(REGION_EVENT);
+        // You can also include some extra data.
+        intent.putExtra("message", msg);
+        LocalBroadcastManager.getInstance(this.context).sendBroadcast(intent);
     }
 
 }
