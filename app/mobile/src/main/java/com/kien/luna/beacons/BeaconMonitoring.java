@@ -42,7 +42,7 @@ public class BeaconMonitoring {
     private int steps_offset = -1;
     private boolean insideOffice = true;
     private Context context;
-
+    String user_id = "1";
     public BeaconMonitoring(Context context) {
         this.context = context;
         beaconManager = new BeaconManager(context);
@@ -69,8 +69,8 @@ public class BeaconMonitoring {
                         "Enter",
                         region.toString(), region.getMinor()
                 );
-                String user_id = "1";
-                postJson(user_id + ";ENTER;" + region.getIdentifier()+ ";" + String.valueOf(steps_count));
+                user_id = "1";
+                postJson(user_id + ";ENTER;" + region.getIdentifier() + ";" + String.valueOf(steps_count));
                 broadcastMessage("Entering region " + region.getIdentifier() + "| Total steps: " + String.valueOf(steps_count) );
                 steps_count = 0;
             }
@@ -81,10 +81,11 @@ public class BeaconMonitoring {
                         "Exit",
                         region.toString(), region.getMinor());
 
-                String user_id = "1";
+                user_id = "1";
                 postJson(user_id + ";EXIT;" + region.getIdentifier() + ";" + String.valueOf(steps_count));
-                broadcastMessage("Exiting region " + region.getIdentifier() + "| Total steps: " + String.valueOf(steps_count));
                 steps_count = 0;
+                broadcastMessage("Exiting region " + region.getIdentifier() + "| Total steps: " + String.valueOf(steps_count));
+
             }
         };
         beaconManager.setBackgroundScanPeriod(scanPeriodMillis, waitTimeMillis);

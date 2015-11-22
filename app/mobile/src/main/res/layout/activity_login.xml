@@ -1,0 +1,39 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/colorPrimary"
+    android:padding="20dip"
+    android:gravity="center_vertical|center_horizontal">
+
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="center"
+
+        android:padding="2dip">
+
+        <ImageView
+            android:layout_width="fill_parent"
+            android:layout_height="120dp"
+            android:layout_weight="80"
+            android:src="@drawable/logo"
+            android:id="@+id/logo"
+            android:padding="35dp"
+            android:gravity="center"/>
+
+        <com.google.android.gms.common.SignInButton
+            android:id="@+id/sign_in_button"
+            android:layout_width="fill_parent"
+            android:padding="45dp"
+            android:layout_height="0dp"
+            android:layout_weight="80"
+            android:layout_marginBottom="30dip"
+            android:enabled="false" />
+
+    </LinearLayout>
+
+
+</LinearLayout>

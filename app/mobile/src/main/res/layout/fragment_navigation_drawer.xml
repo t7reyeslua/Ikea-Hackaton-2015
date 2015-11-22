@@ -12,6 +12,7 @@
         android:background="@color/colorPrimary">
 
         <ImageView
+            android:id="@+id/logo_id"
             android:layout_width="140dp"
             android:layout_height="90dp"
             android:src="@drawable/logo"

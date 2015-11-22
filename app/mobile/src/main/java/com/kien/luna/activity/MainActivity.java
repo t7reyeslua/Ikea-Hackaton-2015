@@ -1,12 +1,14 @@
 package com.kien.luna.activity;
 
 import com.estimote.sdk.SystemRequirementsChecker;
+import com.google.android.gms.plus.Plus;
+import com.google.android.gms.plus.model.people.Person;
 import com.kien.luna.R;
 import com.kien.luna.beacons.BeaconMonitoring;
-import com.kien.luna.beacons.BeaconRanging;
-import com.kien.luna.communication.Message;
 import com.kien.luna.communication.Server;
-import com.kien.luna.stepCounter.ActivityMonitor;
+import com.kien.luna.login.GoogleLoginManager;
+import com.kien.luna.login.SignInActivity;
+import com.kien.luna.login.UserPreferences;
 import com.kien.luna.stepCounter.StepCounter;
 
 import android.content.BroadcastReceiver;
@@ -15,32 +17,36 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Sensor;
-import android.hardware.SensorEvent;
 import android.hardware.SensorManager;
-import android.hardware.SensorEventListener;
+import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.preference.PreferenceManager;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements FragmentDrawer.FragmentDrawerListener, ServiceConnection {
+public class MainActivity extends GoogleLoginManager implements FragmentDrawer.FragmentDrawerListener, ServiceConnection {
 
     private static String TAG = MainActivity.class.getSimpleName();
     private Toolbar mToolbar;
@@ -48,6 +54,8 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     private Server server;
     private View coordinatorLayoutView;
     private BeaconMonitoring beaconEstimote;
+
+    public static final String MIME_TEXT_PLAIN = "text/plain";
 
     private SensorManager mSensorManager;
     private Messenger mServiceMessenger = null;
@@ -57,10 +65,27 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
     private int total_steps = 0;
     private ServiceConnection mConnection = this;
 
+    private String mUsername;
+    private Person currentUser;
+    private TextView mUsernamePic;
+    private ImageView imgProfilePic;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mUsername = PreferenceManager.getDefaultSharedPreferences(this)
+                .getString(UserPreferences.USERNAME, null);
+//        if (mUsername == null) {
+//            showLoginScreen();
+//        }
         setContentView(R.layout.activity_main);
+
+//        if (savedInstanceState != null) {
+//            mSignInProgress = savedInstanceState
+//                    .getInt(SAVED_PROGRESS, STATE_DEFAULT);
+//        }
+//        mGoogleApiClient = buildGoogleApiClient();
 
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         coordinatorLayoutView = findViewById(R.id.coordinatorLayout);
@@ -79,6 +104,117 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
         beaconEstimote = new BeaconMonitoring(this);
         doBindService();
         this.startService(new Intent(this, StepCounter.class));
+    }
+
+    private void showLoginScreen(){
+        Intent intent = new Intent(this, SignInActivity.class);
+        startActivity(intent);
+    }
+
+    /* onConnected is called when our Activity successfully connects to Google
+     * Play services.  onConnected indicates that an account was selected on the
+     * device, that the selected account has granted any requested permissions to
+     * our app and that we were able to establish a service connection to Google
+     * Play services.
+     */
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        // Reaching onConnected means we consider the user signed in.
+        Log.i(TAG, "onConnected to Google Play Services");
+
+        // Retrieve some profile information to personalize our app for the user.
+        currentUser = Plus.PeopleApi.getCurrentPerson(mGoogleApiClient);
+
+        Log.e(TAG, currentUser.toString());
+        getProfileInformation();
+
+
+        // Indicate that the sign in process is complete.
+        mSignInProgress = STATE_DEFAULT;
+    }
+
+    @Override
+    public void onSignedOut() {
+        //Return to login screen
+        showLoginScreen();
+    }
+
+    /**
+     * Fetching user's information name, email, profile pic
+     * */
+    private void getProfileInformation() {
+        try {
+            if (Plus.PeopleApi.getCurrentPerson(mGoogleApiClient) != null) {
+                currentUser = Plus.PeopleApi
+                        .getCurrentPerson(mGoogleApiClient);
+                String personName = currentUser.getDisplayName();
+                String personPhotoUrl = currentUser.getImage().getUrl();
+                String personGooglePlusProfile = currentUser.getUrl();
+                String email = Plus.AccountApi.getAccountName(mGoogleApiClient);
+                String personId = currentUser.getId();
+
+                Log.e(TAG, "Name: " + personName + ", Id: " + personId +  ", plusProfile: "
+                        + personGooglePlusProfile + ", email: " + email
+                        + ", Image: " + personPhotoUrl);
+
+
+                PreferenceManager.getDefaultSharedPreferences(this).edit().putString(
+                        UserPreferences.USERNAME, personName).commit();
+                PreferenceManager.getDefaultSharedPreferences(this).edit().putString(
+                        UserPreferences.USERID, personId).commit();
+                PreferenceManager.getDefaultSharedPreferences(this).edit().putString(
+                        UserPreferences.USERMAIL, email).commit();
+                PreferenceManager.getDefaultSharedPreferences(this).edit().putString(
+                        UserPreferences.USERPIC, personPhotoUrl).commit();
+
+                Log.e(TAG, personName);
+//                mUsernamePic = (TextView) findViewById(R.id.textViewUser);
+//                mUsernamePic.setText(" " + personName + " ");
+                // by default the profile url gives 50x50 px image only
+                // we can replace the value with whatever dimension we want by
+                // replacing sz=X
+                personPhotoUrl = personPhotoUrl.substring(0,
+                        personPhotoUrl.length() - 2)
+                        + 560;
+
+                //imgProfilePic = (ImageView) findViewById(R.id.logo_id);
+                //new LoadProfileImage(imgProfilePic).execute(personPhotoUrl);
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * Background Async task to load user profile picture from url
+     * */
+    private class LoadProfileImage extends AsyncTask<String, Void, Bitmap> {
+        ImageView bmImage;
+
+        public LoadProfileImage(ImageView bmImage) {
+            this.bmImage = bmImage;
+        }
+
+        protected Bitmap doInBackground(String... urls) {
+            String urldisplay = urls[0];
+            Bitmap mIcon11 = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                mIcon11 = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                Log.e("Error", e.getMessage());
+                e.printStackTrace();
+            }
+            return mIcon11;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            bmImage.setImageBitmap(result);
+        }
+
+
     }
 
     public void configureSensing() {
@@ -132,6 +268,7 @@ public class MainActivity extends AppCompatActivity implements FragmentDrawer.Fr
         } catch (Throwable t) {
             Log.e(TAG, "Failed to unbind from the service", t);
         }
+
     }
 
     @Override
